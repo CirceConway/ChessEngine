@@ -338,3 +338,11 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/GameData.pgn
+/GameTest.pgn
+/labeled_games.csv
+/labeled_games_2.csv
+/labeled_games_3.csv
+
+#Don't commit Weights
+*.h5
