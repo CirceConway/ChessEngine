@@ -26,6 +26,7 @@ def convert_fen(fen):
                 board_file += int(piece)
             else:
                 layer_ind = layer_list.index(piece)
+                #This line makes sure that first 6 boards always belong to the current turn player
                 layer_ind = (layer_ind + (6*turn_mod)) % 12
                 converted_board[rank][board_file][layer_ind] = 1
                 board_file += 1
@@ -46,7 +47,7 @@ def convert_fen(fen):
     #if piece_split[2] != '-':
 
 
-    return converted_board.flatten()
+    return converted_board.flatten(), turn_mod
 
 #Extracts midgame and endgame positions from each game and stores them in out_path.
 #OUTPATH IS WIPED AT THE BEGINNING OF THIS FUNCTION
@@ -90,8 +91,11 @@ def train_from_processed(path, num_epochs=5):
     boards = []
     
     for row in data:
-        labels.append(float(row[0]))
-        boards.append(convert_fen(row[1]))
+        temp_board, turn_mod = convert_fen(row[1])
+        temp_label = float(row[0]) * (1 - (2*turn_mod))
+
+        labels.append(temp_label)
+        boards.append(temp_board)
        
     train_data, test_data, train_labels, test_labels = train_test_split(np.array(boards), np.array(labels), test_size=0.20, shuffle=True)
 
@@ -106,7 +110,7 @@ def train_from_processed(path, num_epochs=5):
     model.add(layers.Dense(512, activation='relu'))
     model.add(layers.Dense(1))
 
-    model.load_weights("SimpleDenseMore.h5")
+    model.load_weights("SamePerspective.h5")
 
     #model.summary()
 
@@ -121,5 +125,5 @@ def train_from_processed(path, num_epochs=5):
 
     print(test_acc)
 
-    model.save_weights("TenThousandGames.h5")
+    model.save_weights("SamePerspectiveMore.h5")
 

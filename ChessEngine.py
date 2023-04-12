@@ -8,7 +8,8 @@ import numpy as np
 
 #1st dimension order is K, Q, R, B, N, P, k, q, r, b, n, p, en_passant,
 #special(Active player(a1), White Can Castle Kingside(e1), White can Castle Queenside(d1), Black Can Castle Kingside(e8), Black Can Castle Queenside(d8)) 
-layer_list = ['K', 'Q', 'R', 'B', 'N', 'P', 'k', 'q', 'r', 'b', 'n', 'p', 'en_passant', 'special']
+layer_list = ['K', 'Q', 'R', 'B', 'N', 'P', 'k', 'q', 'r', 'b', 'n', 'p']
+              #, 'en_passant', 'special']
 
 def choose_move(fen, model):
     board = chess.Board(fen=fen)
@@ -43,17 +44,17 @@ def build_model(path):
     return model
 
 def evaluate(fen, model):
-    board = convert_fen(fen)
+    board, turn_mod = convert_fen(fen)
     board = np.reshape(board, (1, 768))
     prediction = model.predict(board, verbose=0)
     #max_pre = np.argmax(prediction)
-    return prediction
+    return prediction * (1 - (2*turn_mod))
 
 
 #import_and_process("GameData.pgn", "labeled_games_continuous.csv", 2000, skip_games=8000)
 
 #train_from_processed("labeled_games_continuous.csv", num_epochs=10)
-model = build_model("TenThousandGames.h5")
+model = build_model("SamePerspectiveMore.h5")
 
-print(evaluate("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", model))
+print(evaluate("3Q4/8/k7/8/8/1R1K4/8/8 b - - 0 1", model))
 
