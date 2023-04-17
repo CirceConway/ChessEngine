@@ -65,6 +65,9 @@ def import_and_process(in_path, out_path, num_games, skip_games=0):
             label = game.headers["Result"].split('-')[0]
             if label == '1/2':
                 label = 0.5
+            elif not label.isnumeric():
+                print("FAILED")
+                continue
             label = float(label)*2 - 1
             #temp_board = chess.Board()
             game = chess.pgn.read_game(gamelist)
@@ -83,7 +86,7 @@ def import_and_process(in_path, out_path, num_games, skip_games=0):
     #print(temp_game.variations)
 
 
-def train_from_processed(path, num_epochs=5):
+def train_from_processed(path, save_name, load_name=None, num_epochs=5):
     print("Building Dataset...")
     data = np.genfromtxt(path, delimiter = ',', dtype=str)
 
@@ -93,11 +96,12 @@ def train_from_processed(path, num_epochs=5):
     for row in data:
         temp_board, turn_mod = convert_fen(row[1])
         temp_label = float(row[0]) * (1 - (2*turn_mod))
+        temp_label += 1
 
         labels.append(temp_label)
         boards.append(temp_board)
        
-    train_data, test_data, train_labels, test_labels = train_test_split(np.array(boards), np.array(labels), test_size=0.20, shuffle=True)
+    train_data, test_data, train_labels, test_labels = train_test_split(np.array(boards), np.array(labels), test_size=0.10, shuffle=True)
 
     print("Beginning Training")
     model = models.Sequential()
@@ -108,15 +112,16 @@ def train_from_processed(path, num_epochs=5):
     model.add(layers.Dense(2048, activation='relu', input_shape = [768]))
     model.add(layers.Dense(1024, activation='relu'))
     model.add(layers.Dense(512, activation='relu'))
-    model.add(layers.Dense(1))
+    model.add(layers.Dense(3, activation='softmax'))
 
-    model.load_weights("SamePerspective.h5")
+    if load_name is not None:
+        model.load_weights(load_name)
 
     #model.summary()
 
     model.compile(optimizer='adam',
-              loss=tf.keras.losses.mae,
-              metrics=['mae'])
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              metrics=['accuracy'])
 
     history = model.fit(train_data, train_labels, epochs=num_epochs, 
                     validation_data=(test_data, test_labels))
@@ -125,5 +130,5 @@ def train_from_processed(path, num_epochs=5):
 
     print(test_acc)
 
-    model.save_weights("SamePerspectiveMore.h5")
+    model.save_weights(save_name)
 
