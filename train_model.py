@@ -46,8 +46,8 @@ def convert_fen(fen):
     #Implement En passant eventually in layer index 12
     #if piece_split[2] != '-':
 
-
-    return converted_board.flatten(), turn_mod
+    #.flatten()
+    return converted_board, turn_mod
 
 #Extracts midgame and endgame positions from each game and stores them in out_path.
 #OUTPATH IS WIPED AT THE BEGINNING OF THIS FUNCTION
@@ -95,8 +95,13 @@ def train_from_processed(path, save_name, load_name=None, num_epochs=5):
     
     for row in data:
         temp_board, turn_mod = convert_fen(row[1])
-        temp_label = float(row[0]) * (1 - (2*turn_mod))
-        temp_label += 1
+        temp_label = float(row[0])
+        if turn_mod == 1:
+            temp_label = (temp_label - 2) * -1
+
+        #print(temp_label)
+        #* (1 - (2*turn_mod))
+        #temp_label += 1
 
         labels.append(temp_label)
         boards.append(temp_board)
@@ -104,23 +109,44 @@ def train_from_processed(path, save_name, load_name=None, num_epochs=5):
     train_data, test_data, train_labels, test_labels = train_test_split(np.array(boards), np.array(labels), test_size=0.10, shuffle=True)
 
     print("Beginning Training")
-    model = models.Sequential()
-    #model.add(layers.Conv2D(1024, (8, 8), activation='relu', input_shape=(8, 8, 14)))
-    
-    #model.add(layers.Flatten())
 
-    model.add(layers.Dense(2048, activation='relu', input_shape = [768]))
-    model.add(layers.Dense(1024, activation='relu'))
-    model.add(layers.Dense(512, activation='relu'))
-    model.add(layers.Dense(3, activation='softmax'))
+    input_shape = (8, 8, 12)
+    input_layer = tf.keras.layers.Input(shape=input_shape)
+
+    #First convolutional layer for detecting features across the whole board
+    conv1 = tf.keras.layers.Conv2D(filters=512, kernel_size=(8, 8), activation='relu')(input_layer)
+    flatten1 = tf.keras.layers.Flatten()(conv1)
+    #Second layer for detecting features on smaller subsections of the board
+    conv2 = tf.keras.layers.Conv2D(filters=128, kernel_size=(5, 5), activation='relu')(input_layer)
+    flatten2 = tf.keras.layers.Flatten()(conv2)
+
+    merged_layer = tf.keras.layers.Concatenate()([flatten1, flatten2])
+    #flatten_layer = tf.keras.layers.Flatten()(merged_layer)
+    dropout_layer = tf.keras.layers.Dropout(.1)(merged_layer)
+    dense_layer = tf.keras.layers.Dense(units=128, activation='relu')(dropout_layer)
+    dense_output = tf.keras.layers.Dense(units=3)(dense_layer)
+    
+    # Create the model
+    model = tf.keras.models.Model(inputs=input_layer, outputs=dense_output)
+
+    #model = models.Sequential()
+    #
+    #model.add(layers.Conv2D(1024, (8, 8), activation='relu', input_shape=(8, 8, 14)))
+    #
+    ##model.add(layers.Flatten())
+    #
+    #model.add(layers.Dense(2048, activation='relu', input_shape = [768]))
+    #model.add(layers.Dense(1024, activation='relu'))
+    #model.add(layers.Dense(512, activation='relu'))
+    #model.add(layers.Dense(3, activation='softmax'))
 
     if load_name is not None:
         model.load_weights(load_name)
 
-    #model.summary()
+    model.summary()
 
     model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy'])
 
     history = model.fit(train_data, train_labels, epochs=num_epochs, 
